@@ -1,8 +1,8 @@
 #ifndef __INTENSITY_SIGMA_LUT_HPP__
 #define __INTENSITY_SIGMA_LUT_HPP__
 
-#include <sycl/sycl.hpp>
 #include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 #include <type_traits>
 
 #include "anr_params.hpp"
@@ -16,7 +16,7 @@ class IntensitySigmaLUT {
   // default constructor
   IntensitySigmaLUT() {}
 
-#if defined (IS_BSP)
+#if defined(IS_BSP)
   // construct from a device_ptr (for constructing from device memory)
   IntensitySigmaLUT(device_ptr<float> ptr) {
     // use a pipelined LSU to load from device memory since we don't
@@ -26,7 +26,7 @@ class IntensitySigmaLUT {
       data_[i] = PipelinedLSU::load(ptr + i);
     }
   }
-#else 
+#else
   // construct from a regular pointer
   IntensitySigmaLUT(float* ptr) {
     for (int i = 0; i < lut_depth; i++) {
@@ -49,11 +49,11 @@ class IntensitySigmaLUT {
 
   // helper static method to allocate enough memory to hold the LUT
   static float* Allocate(sycl::queue& q) {
-#if defined (IS_BSP)
+#if defined(IS_BSP)
     float* ptr = sycl::malloc_device<float>(lut_depth, q);
-#else 
+#else
     float* ptr = sycl::malloc_shared<float>(lut_depth, q);
-#endif   
+#endif
     if (ptr == nullptr) {
       std::cerr << "ERROR: could not allocate space for 'ptr'\n";
       std::terminate();

@@ -23,7 +23,7 @@ static_assert(fpga_tools::IsPow2(kPixelsPerCycle) > 0);
 
 // The maximum number of columns in the image
 #ifndef MAX_COLS
-#define MAX_COLS 1920 // HD
+#define MAX_COLS 1920  // HD
 //#define MAX_COLS 3840  // 4K
 //#define MAX_COLS 2048
 #endif
@@ -39,19 +39,19 @@ constexpr unsigned kMaxRows = MAX_ROWS;
 static_assert(kMaxRows > 0);
 
 // pick the indexing variable size based on kMaxCols and kMaxRows
-constexpr unsigned kSmallIndexTBits =
-    fpga_tools::Max(fpga_tools::CeilLog2(kMaxCols),
-                    fpga_tools::CeilLog2(kMaxRows));
+constexpr unsigned kSmallIndexTBits = fpga_tools::Max(
+    fpga_tools::CeilLog2(kMaxCols), fpga_tools::CeilLog2(kMaxRows));
 using SmallIndexT = ac_int<kSmallIndexTBits, false>;
 
 // add max() function to std::numeric_limits for IndexT
 namespace std {
-  template<> class numeric_limits<SmallIndexT> {
-  public:
-    static constexpr int max() { return (1 << kSmallIndexTBits) - 1; };
-    static constexpr int min() { return 0; };
-  };
+template <>
+class numeric_limits<SmallIndexT> {
+ public:
+  static constexpr int max() { return (1 << kSmallIndexTBits) - 1; };
+  static constexpr int min() { return 0; };
 };
+};  // namespace std
 
 // the type used for indexing the rows and columns of the image
 using IndexT = short;
@@ -68,20 +68,21 @@ static_assert(kPixelBits > 0);
 // the type to use for the pixel intensity values and a temporary type
 // which should have more bits than the pixel type to check for overflow.
 // We will use subtraction on the temporary type, so it must be signed.
-using PixelT = ac_int<kPixelBits, false>; // 'kPixelBits' bits, unsigned
-using TmpT = long long;                   // 64 bits, signed
+using PixelT = ac_int<kPixelBits, false>;  // 'kPixelBits' bits, unsigned
+using TmpT = long long;                    // 64 bits, signed
 constexpr int kPixelRange = (1 << kPixelBits);
 static_assert(std::is_signed_v<TmpT>);
 static_assert((sizeof(TmpT) * 8) > kPixelBits);
 
 // add min() and max() functions to std::numeric_limits for PixelT
 namespace std {
-  template<> class numeric_limits<PixelT> {
-  public:
-    static constexpr int max() { return (1 << kPixelBits) - 1; };
-    static constexpr int min() { return 0; };
-  };
+template <>
+class numeric_limits<PixelT> {
+ public:
+  static constexpr int max() { return (1 << kPixelBits) - 1; };
+  static constexpr int min() { return 0; };
 };
+};  // namespace std
 
 // PSRN default threshold
 // https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio

@@ -33,32 +33,27 @@ class ShiftReg {
   //        └───┴───┴───┘
   // ```
   void Shift(T &in) {
-    UnrolledLoop<0, (depth - 1)>([&](auto i) {
-      registers_[i] = registers_[i + 1];
-    });
+    UnrolledLoop<0, (depth - 1)>(
+        [&](auto i) { registers_[i] = registers_[i + 1]; });
     registers_[depth - 1] = in;
   }
 
   template <int shift_amt>
   void shiftSingleVal(T &in) {
-    UnrolledLoop<0, (depth - shift_amt)>([&](auto i) {
-      registers_[i] = registers_[i + shift_amt];
-    });
+    UnrolledLoop<0, (depth - shift_amt)>(
+        [&](auto i) { registers_[i] = registers_[i + shift_amt]; });
 
-    UnrolledLoop<(depth - shift_amt), depth>([&](auto i) {
-      registers_[i] = in;
-    });
+    UnrolledLoop<(depth - shift_amt), depth>(
+        [&](auto i) { registers_[i] = in; });
   }
 
   template <int shift_amt>
   void ShiftMultiVals(DataBundle<T, shift_amt> &in) {
-    UnrolledLoop<0, (depth - shift_amt)>([&](auto i) {
-      registers_[i] = registers_[i + shift_amt];
-    });
+    UnrolledLoop<0, (depth - shift_amt)>(
+        [&](auto i) { registers_[i] = registers_[i + shift_amt]; });
 
-    UnrolledLoop<0, shift_amt>([&](auto i) {
-      registers_[(depth - shift_amt) + i] = in[i];
-    });
+    UnrolledLoop<0, shift_amt>(
+        [&](auto i) { registers_[(depth - shift_amt) + i] = in[i]; });
   }
 
   // use an accessor like this to force static accesses
@@ -97,9 +92,8 @@ class ShiftReg2d {
   //        | ^- | <- | <- | <- input i=2
   //        +----+----+----+
   void Shift(T &in) {
-    UnrolledLoop<0, (rows - 1)>([&](auto i) {
-      registers_[i].Shift(registers_[i + 1][0]);
-    });
+    UnrolledLoop<0, (rows - 1)>(
+        [&](auto i) { registers_[i].Shift(registers_[i + 1][0]); });
     registers_[(rows - 1)].Shift(in);
   }
 
@@ -114,9 +108,7 @@ class ShiftReg2d {
   //      ◄─ r ◄ e ◄ g ◄─
   //       └───┴───┴───┘
   void ShiftCol(T in[rows]) {
-    UnrolledLoop<0, rows>([&](auto i) {
-      registers_[i].Shift(in[i]);
-    });
+    UnrolledLoop<0, rows>([&](auto i) { registers_[i].Shift(in[i]); });
   }
 
   template <int shift_amt>

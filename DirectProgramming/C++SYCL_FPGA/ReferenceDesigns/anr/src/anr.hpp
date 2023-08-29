@@ -7,10 +7,10 @@
 // ANR pipeline.
 //
 
-#include <sycl/sycl.hpp>
-#include <sycl/ext/intel/fpga_extensions.hpp>
-#include <sycl/ext/intel/ac_types/ac_int.hpp>
 #include <limits>
+#include <sycl/ext/intel/ac_types/ac_int.hpp>
+#include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -47,9 +47,9 @@ struct DataForwardStruct {
   DataForwardStruct(PixelT pixel_n, PixelT pixel_o, float sig_i)
       : pixel_n(pixel_n), pixel_o(pixel_o), sig_i(sig_i) {}
 
-  PixelT pixel_n;   // the new pixel
-  PixelT pixel_o;   // the original pixel
-  float sig_i;      // the intensity sigma value for the pixel
+  PixelT pixel_n;  // the new pixel
+  PixelT pixel_o;  // the original pixel
+  float sig_i;     // the intensity sigma value for the pixel
 };
 
 //
@@ -61,7 +61,7 @@ auto BuildGaussianPowers1D(float sigma) {
   fpga_tools::ShiftReg<float, size> filter;
   for (int x = -size / 2; x <= size / 2; x++) {
     float x_over_sig = x / sigma;
-    filter[x + size / 2] = 0.5 * x_over_sig * x_over_sig; // 0.5*(x/sigma)^2
+    filter[x + size / 2] = 0.5 * x_over_sig * x_over_sig;  // 0.5*(x/sigma)^2
   }
   return filter;
 }
@@ -81,7 +81,7 @@ PixelT Saturate(float pixel_float) {
   PixelT pixel;
   if (pixel_float >= kMaxPixelVal) {
     pixel = kMaxPixelVal;
-  } else if ((pixel_float_bits >> kFloatSignOffset) & 0x1) { // pixel_float < 0
+  } else if ((pixel_float_bits >> kFloatSignOffset) & 0x1) {  // pixel_float < 0
     pixel = kMinPixelVal;
   } else {
     pixel = pixel_float;
@@ -96,12 +96,11 @@ PixelT Saturate(float pixel_float) {
 // intensity filters create the bilateral filter.
 //
 template <int filter_size, int filter_size_eff = (filter_size + 1) / 2>
-inline float
-BilateralFilter1D(fpga_tools::ShiftReg<PixelT, filter_size>& buffer,
-                  fpga_tools::ShiftReg<float, filter_size_eff>& spatial_power,
-                  ANRParams params, float sig_i_inv_squared_x_half,
-                  const ExpLUT& exp_lut,
-                  const InvLUT& inv_lut) {
+inline float BilateralFilter1D(
+    fpga_tools::ShiftReg<PixelT, filter_size>& buffer,
+    fpga_tools::ShiftReg<float, filter_size_eff>& spatial_power,
+    ANRParams params, float sig_i_inv_squared_x_half, const ExpLUT& exp_lut,
+    const InvLUT& inv_lut) {
   // We need to hold all pixels bits, but need the type to be signed for the
   // BilateralFilter1D since it subtracts the values. So add one bit to it and
   // make it a signed ac_int.
@@ -115,9 +114,8 @@ BilateralFilter1D(fpga_tools::ShiftReg<PixelT, filter_size>& buffer,
 
   // convert unsigned pixels to signed
   fpga_tools::ShiftReg<SignedPixelT, filter_size> buffer_signed;
-  fpga_tools::UnrolledLoop<filter_size>([&](auto i) {
-    buffer_signed[i] = static_cast<SignedPixelT>(buffer[i]);
-  });
+  fpga_tools::UnrolledLoop<filter_size>(
+      [&](auto i) { buffer_signed[i] = static_cast<SignedPixelT>(buffer[i]); });
 
   // build the bilateral filter
   fpga_tools::ShiftReg<float, filter_size_eff> bilateral_filter;
@@ -178,7 +176,7 @@ BilateralFilter1D(fpga_tools::ShiftReg<PixelT, filter_size>& buffer,
   fpga_tools::UnrolledLoop<filter_size_eff>([&](auto i) {
     filtered_pixel += (float(buffer[i * 2]) * bilateral_filter[i]);
   });
-  
+
   // Normalize the pixel value by the bilateral filter sum. Use the inverse
   // LUT to compute 1/filter_sum. This saves area by using a 32-bit
   // floating-point multiplication, instead of division.
@@ -198,10 +196,10 @@ BilateralFilter1D(fpga_tools::ShiftReg<PixelT, filter_size>& buffer,
 template <int filter_size, int filter_size_eff = (filter_size + 1) / 2>
 struct VerticalFunctor {
   auto operator()(int row, int col,
-                 fpga_tools::ShiftReg<PixelT, filter_size> buffer,
-                 fpga_tools::ShiftReg<float, filter_size_eff> spatial_power,
-                 ANRParams params, const ExpLUT& exp_lut,
-                 const InvLUT& inv_lut, IntensitySigmaLUT& sig_i_lut) const {
+                  fpga_tools::ShiftReg<PixelT, filter_size> buffer,
+                  fpga_tools::ShiftReg<float, filter_size_eff> spatial_power,
+                  ANRParams params, const ExpLUT& exp_lut,
+                  const InvLUT& inv_lut, IntensitySigmaLUT& sig_i_lut) const {
     // static asserts to validate template arguments
     static_assert(filter_size > 1);
 
@@ -212,8 +210,8 @@ struct VerticalFunctor {
 
     // perform the vertical 1D bilateral filter
     auto output_pixel_float = BilateralFilter1D<filter_size>(
-        buffer, spatial_power, params, sig_i_inv_squared_x_half,
-        exp_lut, inv_lut);
+        buffer, spatial_power, params, sig_i_inv_squared_x_half, exp_lut,
+        inv_lut);
 
     // saturate the output pixel
     PixelT output_pixel = Saturate(output_pixel_float);
@@ -239,7 +237,7 @@ struct HorizontalFunctor {
                   fpga_tools::ShiftReg<float, filter_size_eff> spatial_power,
                   ANRParams params, ANRParams::AlphaFixedT alpha_fixed,
                   ANRParams::AlphaFixedT one_minus_alpha_fixed,
-                  const ExpLUT& exp_lut, const InvLUT& inv_lut) const {    
+                  const ExpLUT& exp_lut, const InvLUT& inv_lut) const {
     // static asserts
     static_assert(filter_size > 1);
 
@@ -251,14 +249,13 @@ struct HorizontalFunctor {
     // grab just the pixel data, pixel_n is the 'new' pixel forwarded from the
     // vertical kernel (i.e., the partially filtered one)
     fpga_tools::ShiftReg<PixelT, filter_size> buffer_pixels;
-    fpga_tools::UnrolledLoop<filter_size>([&](auto i) {
-      buffer_pixels[i] = buffer[i].pixel_n;
-    });
+    fpga_tools::UnrolledLoop<filter_size>(
+        [&](auto i) { buffer_pixels[i] = buffer[i].pixel_n; });
 
     // perform the horizontal 1D bilateral filter
     auto output_pixel_float = BilateralFilter1D<filter_size>(
-        buffer_pixels, spatial_power, params, sig_i_inv_squared_x_half,
-        exp_lut, inv_lut);
+        buffer_pixels, spatial_power, params, sig_i_inv_squared_x_half, exp_lut,
+        inv_lut);
 
     // saturate the output pixel
     PixelT output_pixel = Saturate(output_pixel_float);
@@ -278,8 +275,7 @@ struct HorizontalFunctor {
 // Submit all of the ANR kernels (vertical and horizontal)
 //
 template <typename IndexT, typename InPipe, typename OutPipe,
-          unsigned filter_size, unsigned pixels_per_cycle,
-          unsigned max_cols>
+          unsigned filter_size, unsigned pixels_per_cycle, unsigned max_cols>
 std::vector<event> SubmitANRKernels(queue& q, int cols, int rows,
                                     ANRParams params,
                                     float* sig_i_lut_data_ptr) {
@@ -357,11 +353,10 @@ std::vector<event> SubmitANRKernels(queue& q, int cols, int rows,
     // It will callback to 'vertical_func' with all of the additional
     // arguments listed after 'vertical_func' (i.e., spatial_power,
     // params, ...)
-    ColumnStencil<PixelT, DataForwardStruct, IndexT, InPipe,
-                  IntraPipe, filter_size, max_cols, pixels_per_cycle>(rows_k,
-                  cols_k, PixelT(0), vertical_func, spatial_power, params,
-                  std::cref(exp_lut), std::cref(inv_lut),
-                  std::ref(sig_i_lut));
+    ColumnStencil<PixelT, DataForwardStruct, IndexT, InPipe, IntraPipe,
+                  filter_size, max_cols, pixels_per_cycle>(
+        rows_k, cols_k, PixelT(0), vertical_func, spatial_power, params,
+        std::cref(exp_lut), std::cref(inv_lut), std::ref(sig_i_lut));
   });
 
   // submit the horizontal kernel using a row stencil
@@ -378,16 +373,16 @@ std::vector<event> SubmitANRKernels(queue& q, int cols, int rows,
     ANRParams::AlphaFixedT alpha_fixed(params.alpha);
     ANRParams::AlphaFixedT one_minus_alpha_fixed(params.one_minus_alpha);
 #endif
-    
+
     // Start the row stencil.
     // It will callback to 'horizontal_func' with the additional all of the
     // additional arguments listed after 'horizontal_func' (i.e.,
     // spatial_power, params, alpha_fixed, ...)
     RowStencil<DataForwardStruct, PixelT, IndexT, IntraPipe, OutPipe,
-                filter_size, pixels_per_cycle>(rows_k, cols_k,
-                DataForwardStruct(0), horizontal_func, spatial_power,
-                params, alpha_fixed, one_minus_alpha_fixed, std::cref(exp_lut),
-                std::cref(inv_lut));
+               filter_size, pixels_per_cycle>(
+        rows_k, cols_k, DataForwardStruct(0), horizontal_func, spatial_power,
+        params, alpha_fixed, one_minus_alpha_fixed, std::cref(exp_lut),
+        std::cref(inv_lut));
   });
 
   return {vertical_kernel, horizontal_kernel};

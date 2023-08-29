@@ -1,5 +1,3 @@
-#include <sycl/sycl.hpp>
-#include <sycl/ext/intel/fpga_extensions.hpp>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -7,6 +5,8 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -82,11 +82,11 @@ int main(int argc, char* argv[]) {
   /////////////////////////////////////////////////////////////
 
 #if FPGA_SIMULATOR
-    auto selector = sycl::ext::intel::fpga_simulator_selector_v;
+  auto selector = sycl::ext::intel::fpga_simulator_selector_v;
 #elif FPGA_HARDWARE
-    auto selector = sycl::ext::intel::fpga_selector_v;
+  auto selector = sycl::ext::intel::fpga_selector_v;
 #else  // #if FPGA_EMULATOR
-    auto selector = sycl::ext::intel::fpga_emulator_selector_v;
+  auto selector = sycl::ext::intel::fpga_emulator_selector_v;
 #endif
 
   // create the device queue
@@ -103,9 +103,7 @@ int main(int argc, char* argv[]) {
 #endif
 
   std::cout << "Running on device: "
-            << device.get_info<info::device::name>().c_str() 
-            << std::endl;
-
+            << device.get_info<info::device::name>().c_str() << std::endl;
 
   // parse the input files
   int cols, rows, pixel_count;
@@ -117,7 +115,7 @@ int main(int argc, char* argv[]) {
   // create the output pixels (initialize to all 0s)
   std::vector<PixelT> out_pixels(in_pixels.size(), 0);
 
-#if defined (IS_BSP)
+#if defined(IS_BSP)
   // allocate memory on the device for the input and output
   PixelT *in, *out;
   if ((in = malloc_device<PixelT>(pixel_count, q)) == nullptr) {
@@ -128,7 +126,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "ERROR: could not allocate space for 'out'\n";
     std::terminate();
   }
-#else 
+#else
   // allocate memory on the host for the input and output
   PixelT *in, *out;
   if ((in = malloc_shared<PixelT>(pixel_count, q)) == nullptr) {
@@ -139,8 +137,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "ERROR: could not allocate space for 'out'\n";
     std::terminate();
   }
-#endif   
-
+#endif
 
   // copy the input data to the device memory and wait for the copy to finish
   q.memcpy(in, in_pixels.data(), pixel_count * sizeof(PixelT)).wait();
@@ -179,7 +176,7 @@ int main(int argc, char* argv[]) {
       q.memcpy(out_pixels.data(), out, pixel_count * sizeof(PixelT)).wait();
 
       // validate the output on the last iteration
-      if (i == (runs-1)) {
+      if (i == (runs - 1)) {
         passed &= Validate(out_pixels.data(), ref_pixels.data(), rows, cols);
       } else {
         passed &= true;
@@ -237,20 +234,20 @@ double RunANR(queue& q, PixelT* in_ptr, PixelT* out_ptr, int cols, int rows,
 
   // launch the input and output kernels that read from and write to the device
   auto input_kernel_event =
-      SubmitInputDMA<InputKernelID, PixelT, ANRInPipe, kPixelsPerCycle>(q,
-                     in_ptr, rows, cols, frames);
+      SubmitInputDMA<InputKernelID, PixelT, ANRInPipe, kPixelsPerCycle>(
+          q, in_ptr, rows, cols, frames);
 
   auto output_kernel_event =
-      SubmitOutputDMA<OutputKernelID, PixelT, ANROutPipe, kPixelsPerCycle>(q,
-                      out_ptr, rows, cols, frames);
+      SubmitOutputDMA<OutputKernelID, PixelT, ANROutPipe, kPixelsPerCycle>(
+          q, out_ptr, rows, cols, frames);
 
   // launch all ANR kernels
   std::vector<std::vector<event>> anr_kernel_events(frames);
   for (int i = 0; i < frames; i++) {
     anr_kernel_events[i] =
         SubmitANRKernels<IndexT, ANRInPipe, ANROutPipe, kFilterSize,
-                       kPixelsPerCycle, kMaxCols>(q, cols, rows, params,
-                       sig_i_lut_data_ptr);
+                         kPixelsPerCycle, kMaxCols>(q, cols, rows, params,
+                                                    sig_i_lut_data_ptr);
   }
 
   // wait for the input and output kernels to finish
@@ -347,7 +344,8 @@ void ParseFiles(std::string data_dir, std::vector<PixelT>& in_pixels,
   // parse the pixel data files
   int noisy_w, noisy_h;
 #if FPGA_SIMULATOR
-  ParseDataFile(data_dir + "/small_input_noisy.data", in_pixels, noisy_w, noisy_h);
+  ParseDataFile(data_dir + "/small_input_noisy.data", in_pixels, noisy_w,
+                noisy_h);
 #else
   ParseDataFile(data_dir + "/input_noisy.data", in_pixels, noisy_w, noisy_h);
 #endif
