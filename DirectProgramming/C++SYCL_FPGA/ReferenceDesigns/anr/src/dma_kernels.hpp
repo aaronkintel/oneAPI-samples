@@ -7,8 +7,8 @@
 // the ANR output pipe and writing to device memory.
 //
 
-#include <sycl/sycl.hpp>
 #include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 
 #include "data_bundle.hpp"
 
@@ -22,13 +22,13 @@ template <typename KernelId, typename T, typename Pipe, int pixels_per_cycle>
 event SubmitInputDMA(queue &q, T *in_ptr, int rows, int cols, int frames) {
   using PipeType = DataBundle<T, pixels_per_cycle>;
 
-#if defined (IS_BSP)
+#if defined(IS_BSP)
   // LSU attribute to  turn off caching
   using NonCachingLSU =
       ext::intel::lsu<ext::intel::burst_coalesce<true>, ext::intel::cache<0>,
                       ext::intel::statically_coalesce<true>,
                       ext::intel::prefetch<false>>;
-#endif 
+#endif
 
   // validate the number of columns
   if ((cols % pixels_per_cycle) != 0) {
@@ -42,27 +42,28 @@ event SubmitInputDMA(queue &q, T *in_ptr, int rows, int cols, int frames) {
   const int iterations = cols * rows / pixels_per_cycle;
 
   // Using device memory
-  return q.single_task<KernelId>([=]() [[intel::kernel_args_restrict]] {
+  return q.single_task<KernelId>([=
+  ]() [[intel::kernel_args_restrict]] {  // NO-FORMAT: Attribute
 
-#if defined (IS_BSP)
+#if defined(IS_BSP)
     device_ptr<T> in(in_ptr);
-#else 
-    T* in(in_ptr);
-#endif  
+#else
+    T *in(in_ptr);
+#endif
 
     // coalesce the following two loops into a single for-loop using the
     // loop_coalesce attribute
-    [[intel::loop_coalesce(2)]]
+    [[intel::loop_coalesce(2)]]  // NO-FORMAT: Attribute
     for (int f = 0; f < frames; f++) {
       for (int i = 0; i < iterations; i++) {
         PipeType pipe_data;
-        #pragma unroll
+#pragma unroll
         for (int k = 0; k < pixels_per_cycle; k++) {
-#if defined (IS_BSP)
+#if defined(IS_BSP)
           pipe_data[k] = NonCachingLSU::load(in + i * pixels_per_cycle + k);
-#else 
+#else
           pipe_data[k] = in[i * pixels_per_cycle + k];
-#endif   
+#endif
         }
         Pipe::write(pipe_data);
       }
@@ -87,27 +88,28 @@ event SubmitOutputDMA(queue &q, T *out_ptr, int rows, int cols, int frames) {
   const int iterations = cols * rows / pixels_per_cycle;
 
   // Using device memory
-  return q.single_task<KernelId>([=]() [[intel::kernel_args_restrict]] {
+  return q.single_task<KernelId>([=
+  ]() [[intel::kernel_args_restrict]] {  // NO-FORMAT: Attribute
 
-#if defined (IS_BSP)
+#if defined(IS_BSP)
     device_ptr<T> out(out_ptr);
-#else 
-    T* out(out_ptr);
-#endif      
+#else
+    T *out(out_ptr);
+#endif
 
     // coalesce the following two loops into a single for-loop using the
     // loop_coalesce attribute
-    [[intel::loop_coalesce(2)]]
+    [[intel::loop_coalesce(2)]]  // NO-FORMAT: Attribute
     for (int f = 0; f < frames; f++) {
       for (int i = 0; i < iterations; i++) {
         auto pipe_data = Pipe::read();
-        #pragma unroll
+#pragma unroll
         for (int k = 0; k < pixels_per_cycle; k++) {
           out[i * pixels_per_cycle + k] = pipe_data[k];
         }
       }
     }
-});
+  });
 }
 
 #endif /* __DMA_KERNELS_HPP__ */

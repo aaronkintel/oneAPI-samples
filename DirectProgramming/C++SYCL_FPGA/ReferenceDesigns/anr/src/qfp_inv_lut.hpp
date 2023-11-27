@@ -23,11 +23,11 @@ struct InvLUT : fpga_tools::ROMBase<unsigned short, kInvLutDepth> {
   // NOTE: anything called from within the functor's operator() MUST be
   // constexpr or else you won't get a ROM
   struct InitFunctor {
-    constexpr unsigned short operator () (int x) const {
+    constexpr unsigned short operator()(int x) const {
       // treat the ROM index as a QFP number and convert to a float (f) and use
       // the float to compute 1/f and initialize that entry of the ROM
       float f = QFP::ToFP32CE(x);
-      float val = 1.0f / f ;
+      float val = 1.0f / f;
       return QFP::FromFP32CE(val);
     }
     constexpr InitFunctor() = default;

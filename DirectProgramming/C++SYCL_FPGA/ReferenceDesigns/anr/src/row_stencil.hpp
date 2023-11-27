@@ -1,9 +1,9 @@
 #ifndef __ROW_STENCIL_HPP__
 #define __ROW_STENCIL_HPP__
 
-#include <sycl/sycl.hpp>
-#include <sycl/ext/intel/fpga_extensions.hpp>
 #include <limits>
+#include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 
 #include "data_bundle.hpp"
 #include "shift_reg.hpp"
@@ -96,19 +96,20 @@ void RowStencil(IndexT rows, IndexT cols, const InType zero_val,
   const IndexT col_loop_bound = padded_cols / parallel_cols;
 
   // the shift register
-  [[intel::fpga_register]]
-  fpga_tools::ShiftReg<InType, kShiftRegSize> shifty_pixels;
+  [[intel::fpga_register]]  // NO-FORMAT: Attribute
+  fpga_tools::ShiftReg<InType, kShiftRegSize>
+      shifty_pixels;
 
-  // initialize the contents of the shift register
-  #pragma unroll
+// initialize the contents of the shift register
+#pragma unroll
   for (int i = 0; i < kShiftRegSize; i++) {
     shifty_pixels[i] = zero_val;
   }
 
   // the main processing loop for the image
-  [[intel::initiation_interval(1)]]
+  [[intel::initiation_interval(1)]]  // NO-FORMAT: Attribute
   for (IndexT row = 0; row < rows; row++) {
-    [[intel::initiation_interval(1)]]
+    [[intel::initiation_interval(1)]]  // NO-FORMAT: Attribute
     for (IndexT col_loop = 0; col_loop < col_loop_bound; col_loop++) {
       IndexT col = col_loop * parallel_cols;
 
@@ -134,7 +135,7 @@ void RowStencil(IndexT rows, IndexT cols, const InType zero_val,
 
         // call the user's callback function for the operator
         out_data[stencil_idx] = func(row, (col_local - kColThreshLow),
-                                      shifty_pixels_copy, stencil_args...);
+                                     shifty_pixels_copy, stencil_args...);
       });
 
       // write the output data if it is in range (i.e., it is a real pixel

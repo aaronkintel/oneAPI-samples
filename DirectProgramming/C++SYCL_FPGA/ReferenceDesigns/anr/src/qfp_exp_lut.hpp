@@ -29,7 +29,7 @@ struct ExpLUT : fpga_tools::ROMBase<unsigned short, kExpLUTDepth> {
   // NOTE: anything called from within the functor's operator() MUST be
   // constexpr or else you won't get a ROM
   struct InitFunctor {
-    constexpr unsigned short operator () (int x) const {
+    constexpr unsigned short operator()(int x) const {
       // treat the ROM index as a QFP number and convert to a float (f) and use
       // the float to compute exp(-f) (== 1/exp(f)) and initialize that entry
       // of the ROM

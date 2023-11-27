@@ -1,8 +1,8 @@
 #ifndef __COLUMN_STENCIL_HPP__
 #define __COLUMN_STENCIL_HPP__
 
-#include <sycl/sycl.hpp>
 #include <sycl/ext/intel/fpga_extensions.hpp>
+#include <sycl/sycl.hpp>
 
 #include "data_bundle.hpp"
 #include "shift_reg.hpp"
@@ -103,7 +103,7 @@ void ColumnStencil(IndexT rows, IndexT cols, const InType zero_val,
   fpga_tools::ShiftReg2d<InType, kShiftRegRows, kShiftRegCols> shifty_2d;
 
   // the line buffer fifo
-  [[intel::fpga_memory]]
+  [[intel::fpga_memory]]  // NO-FORMAT: Attribute
   InPipeT line_buffer_FIFO[kLineBufferFIFODepth][kNumLineBuffers];
 
   InPipeT last_new_pixels(zero_val);
@@ -115,9 +115,10 @@ void ColumnStencil(IndexT rows, IndexT cols, const InType zero_val,
   // small number relative padded_rows * col_loop_bound and the
   // increase in Fmax justifies it.
   [[intel::loop_coalesce(2), intel::initiation_interval(1),
-    intel::ivdep(line_buffer_FIFO)]]
-  for (IndexT row = 0; row < padded_rows; row++) {
-    [[intel::initiation_interval(1), intel::ivdep(line_buffer_FIFO)]]
+    intel::ivdep(line_buffer_FIFO)]] for (IndexT row = 0; row < padded_rows;
+                                          row++) {
+    [[intel::initiation_interval(1),
+      intel::ivdep(line_buffer_FIFO)]]  // NO-FORMAT: Attribute
     for (IndexT col_loop = 0; col_loop < col_loop_bound; col_loop++) {
       // the base column index for this iteration
       IndexT col = col_loop * parallel_cols;
@@ -136,7 +137,7 @@ void ColumnStencil(IndexT rows, IndexT cols, const InType zero_val,
       input_val.template ShiftMultiVals<kInputShiftVals, parallel_cols>(
           new_pixels);
 
-      [[intel::fpga_register]]
+      [[intel::fpga_register]]  // NO-FORMAT: Attribute
       InPipeT pixel_column[filter_size];
 
       // load from FIFO to shift register
@@ -196,7 +197,7 @@ void ColumnStencil(IndexT rows, IndexT cols, const InType zero_val,
 
         // pass a copy of the line buffer's register window.
         out_data[stencil_idx] = func((row - kRowOutputThreshLow), col_local,
-                                      shifty_copy, stencil_args...);
+                                     shifty_copy, stencil_args...);
       });
 
       // write the output data if it is in range (i.e., it is a real pixel
